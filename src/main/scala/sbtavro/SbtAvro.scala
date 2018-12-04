@@ -9,6 +9,7 @@ import org.apache.avro.compiler.specific.SpecificCompiler
 import org.apache.avro.compiler.specific.SpecificCompiler.FieldVisibility
 import org.apache.avro.generic.GenericData.StringType
 import org.apache.avro.{Protocol, Schema}
+import sbt.Defaults.{collectFiles, packageTaskSettings}
 import sbt.ConfigKey.configurationToKey
 import sbt.Keys._
 import sbt._
@@ -93,22 +94,22 @@ object SbtAvro extends AutoPlugin {
     compiler.compileToDestination(null, target)
   }
 
-  private[this] def compile(srcDir: File, target: File, log: Logger, stringTypeName: String, fieldVisibilityName: String, enableDecimalLogicalType: Boolean): Set[File] = {
+  private[this] def compile(schemas: Set[File], target: File, log: Logger, stringTypeName: String, fieldVisibilityName: String, enableDecimalLogicalType: Boolean): Set[File] = {
     val stringType = StringType.valueOf(stringTypeName)
     val fieldVisibility = SpecificCompiler.FieldVisibility.valueOf(fieldVisibilityName.toUpperCase)
     log.info("Avro compiler using stringType=%s".format(stringType))
 
-    for (idl <- (srcDir ** "*.avdl").get) {
+    for (idl <- (schemas ** "*.avdl").get) {
       log.info("Compiling Avro IDL %s".format(idl))
       compileIdl(idl, target, stringType, fieldVisibility, enableDecimalLogicalType)
     }
 
-    for (avsc <- AvscFileSorter.sortSchemaFiles((srcDir ** "*.avsc").get)) {
+    for (avsc <- AvscFileSorter.sortSchemaFiles((schemas ** "*.avsc").get)) {
       log.info("Compiling Avro schema %s".format(avsc))
       compileAvsc(avsc, target, stringType, fieldVisibility, enableDecimalLogicalType)
     }
 
-    for (avpr <- (srcDir ** "*.avpr").get) {
+    for (avpr <- (schemas ** "*.avpr").get) {
       log.info("Compiling Avro protocol %s".format(avpr))
       compileAvpr(avpr, target, stringType, fieldVisibility, enableDecimalLogicalType)
     }
@@ -118,7 +119,9 @@ object SbtAvro extends AutoPlugin {
 
   private def sourceGeneratorTask = Def.task {
     val out = streams.value
-    val srcDir = (sourceDirectory in AvroConfig).value
+    val srcDir = (sourceDirectory in AvroConfig).value.getAbsoluteFile
+    val srcDirs = collectFiles(sourceDirectories in AvroConfig, includeFilter in AvroConfig,
+      excludeFilter in AvroConfig).value.toSet[File].map(_.getAbsoluteFile) ++ Set(srcDir)
     val javaSrc = (javaSource in AvroConfig).value
     val strType = stringType.value
     val fieldVis = fieldVisibility.value
@@ -126,9 +129,9 @@ object SbtAvro extends AutoPlugin {
     val cachedCompile = FileFunction.cached(out.cacheDirectory / "avro",
       inStyle = FilesInfo.lastModified,
       outStyle = FilesInfo.exists) { (in: Set[File]) =>
-        compile(srcDir, javaSrc, out.log, strType, fieldVis, enbDecimal)
+        compile(srcDirs, javaSrc, out.log, strType, fieldVis, enbDecimal)
       }
-    cachedCompile((srcDir ** "*.av*").get.toSet).toSeq
+    cachedCompile((srcDirs ** "*.av*").get.toSet).toSeq
   }
 
 }
