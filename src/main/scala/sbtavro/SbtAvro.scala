@@ -35,7 +35,8 @@ object SbtAvro extends AutoPlugin {
     val generate = TaskKey[Seq[File]]("generate", "Generate the Java sources for the Avro files.")
 
     lazy val avroSettings: Seq[Setting[_]] = inConfig(AvroConfig)(Seq[Setting[_]](
-      sourceDirectory := (sourceDirectory in Compile).value / "avro",
+      sourceDirectory := { (sourceDirectory in Compile).value / "avro" },
+      sourceDirectories := (sourceDirectory.value :: Nil),
       javaSource := (sourceManaged in Compile).value / "compiled_avro",
       stringType := "CharSequence",
       fieldVisibility := "public_deprecated",
