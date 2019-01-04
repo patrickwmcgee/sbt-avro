@@ -1,7 +1,6 @@
 package sbtavro
 
 import filesorter.AvscFileSorter
-
 import java.io.File
 
 import org.apache.avro.compiler.idl.Idl
@@ -10,6 +9,7 @@ import org.apache.avro.compiler.specific.SpecificCompiler.FieldVisibility
 import org.apache.avro.generic.GenericData.StringType
 import org.apache.avro.{Protocol, Schema}
 import sbt.ConfigKey.configurationToKey
+import sbt.Defaults.{collectFiles, packageTaskSettings}
 import sbt.Keys._
 import sbt._
 
@@ -36,7 +36,8 @@ object SbtAvro extends AutoPlugin {
     val avroPackage = TaskKey[File]("avroPackage", "Produces an avro artifact, such as a jar containing *.asvc, *.avpr or *.avdl files.")
 
     lazy val avroSettings: Seq[Setting[_]] = inConfig(AvroConfig)(Seq[Setting[_]](
-      sourceDirectory := (sourceDirectory in Compile).value / "avro",
+      sourceDirectory := { (sourceDirectory in Compile).value / "avro" },
+      sourceDirectories := (sourceDirectory.value :: Nil),
       javaSource := (sourceManaged in Compile).value / "compiled_avro",
       stringType := "CharSequence",
       fieldVisibility := "public_deprecated",
@@ -46,8 +47,8 @@ object SbtAvro extends AutoPlugin {
       managedClasspath := {
         Classpaths.managedJars(AvroConfig, classpathTypes.value, update.value)
       },
-      generate := sourceGeneratorTask.value)
-    ) ++ inConfig(AvroConfig)(
+      generate := sourceGeneratorTask.value
+    )) ++ inConfig(AvroConfig)(
       packageTaskSettings(avroPackage, packageAvroMappings)
     ) ++ Seq[Setting[_]](
       sourceGenerators in Compile += (generate in AvroConfig).taskValue,
@@ -130,9 +131,10 @@ object SbtAvro extends AutoPlugin {
     val cachedCompile = FileFunction.cached(out.cacheDirectory / "avro",
       inStyle = FilesInfo.lastModified,
       outStyle = FilesInfo.exists) { (in: Set[File]) =>
-        compile(srcDir, javaSrc, out.log, strType, fieldVis, enbDecimal)
-      }
+      compile(srcDir, javaSrc, out.log, strType, fieldVis, enbDecimal)
+    }
     cachedCompile((srcDir ** "*.av*").get.toSet).toSeq
+  }
   private[this] def packageAvroMappings = Def.task {
     collectFiles(sourceDirectories in AvroConfig, includeFilter in AvroConfig, excludeFilter in AvroConfig)
       .value.map(f => (f, f.getName))

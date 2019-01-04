@@ -1,0 +1,5 @@
+> clean
+> avro:avroPackage
+$ exists target/scala-2.11/avrojar-test_2.11-0.1-SNAPSHOT-avro.jar
+> checkJar
+
