@@ -33,6 +33,8 @@ object SbtAvro extends AutoPlugin {
 
     val generate = TaskKey[Seq[File]]("generate", "Generate the Java sources for the Avro files.")
 
+    val avroPackage = TaskKey[File]("avroPackage", "Produces an avro artifact, such as a jar containing *.asvc, *.avpr or *.avdl files.")
+
     lazy val avroSettings: Seq[Setting[_]] = inConfig(AvroConfig)(Seq[Setting[_]](
       sourceDirectory := (sourceDirectory in Compile).value / "avro",
       javaSource := (sourceManaged in Compile).value / "compiled_avro",
@@ -45,6 +47,8 @@ object SbtAvro extends AutoPlugin {
         Classpaths.managedJars(AvroConfig, classpathTypes.value, update.value)
       },
       generate := sourceGeneratorTask.value)
+    ) ++ inConfig(AvroConfig)(
+      packageTaskSettings(avroPackage, packageAvroMappings)
     ) ++ Seq[Setting[_]](
       sourceGenerators in Compile += (generate in AvroConfig).taskValue,
       managedSourceDirectories in Compile += (javaSource in AvroConfig).value,
@@ -129,6 +133,9 @@ object SbtAvro extends AutoPlugin {
         compile(srcDir, javaSrc, out.log, strType, fieldVis, enbDecimal)
       }
     cachedCompile((srcDir ** "*.av*").get.toSet).toSeq
+  private[this] def packageAvroMappings = Def.task {
+    collectFiles(sourceDirectories in AvroConfig, includeFilter in AvroConfig, excludeFilter in AvroConfig)
+      .value.map(f => (f, f.getName))
   }
 
 }
